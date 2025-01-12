@@ -94,6 +94,10 @@ type chairPostCoordinateResponse struct {
 	RecordedAt int64 `json:"recorded_at"`
 }
 
+func distance(lat1, lon1, lat2, lon2 int) int {
+	return 0
+}
+
 func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	req := &Coordinate{}
@@ -111,6 +115,12 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	lastLocation := &ChairLocation{}
+	if err := tx.GetContext(ctx, lastLocation, `SELECT * FROM chair_locations order by created_at desc limit 1`); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	chairLocationID := ulid.Make().String()
 	if _, err := tx.ExecContext(
 		ctx,
@@ -123,6 +133,14 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 
 	location := &ChairLocation{}
 	if err := tx.GetContext(ctx, location, `SELECT * FROM chair_locations WHERE id = ?`, chairLocationID); err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Update total distance
+	movedDistance := distance(lastLocation.Latitude, lastLocation.Longitude, location.Latitude, location.Longitude)
+	query := `insert into total_distance (chair_id, total_distance, updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, updated_at = ?`
+	if _, err := tx.ExecContext(ctx, query, chair.ID, movedDistance, location.CreatedAt, movedDistance, location.CreatedAt); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
