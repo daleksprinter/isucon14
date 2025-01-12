@@ -319,8 +319,7 @@ func appPostRides(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	continuingRideCount := 0
-	for _, ride := range rides {
+	/*for _, ride := range rides {
 		status, err := getLatestRideStatus(ctx, tx, ride.ID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
@@ -329,9 +328,17 @@ func appPostRides(w http.ResponseWriter, r *http.Request) {
 		if status != "COMPLETED" {
 			continuingRideCount++
 		}
+	}*/
+
+	completedCount := 0
+	query := `select count(1) from ride_statuses join rides on ride_statuses.ride_id = rides.id where user_id = ? and status = 'COMPLETED'`
+	err = tx.GetContext(ctx, &completedCount, query, user.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
 	}
 
-	if continuingRideCount > 0 {
+	if len(rides)-completedCount > 0 {
 		writeError(w, http.StatusConflict, errors.New("ride already exists"))
 		return
 	}
