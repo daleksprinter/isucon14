@@ -94,6 +94,10 @@ type chairPostCoordinateResponse struct {
 	RecordedAt int64 `json:"recorded_at"`
 }
 
+func distance(lat1, lon1, lat2, lon2 int) int {
+	return abs(lat1-lat2) + abs(lon1-lon2)
+}
+
 func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	req := &Coordinate{}
@@ -111,6 +115,16 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	lastLocation := &ChairLocation{}
+	err = tx.GetContext(ctx, lastLocation, `SELECT * FROM chair_locations where chair_id = ? order by created_at desc limit 1`, chair.ID)
+	isUpdate := true
+	if err == sql.ErrNoRows {
+		isUpdate = false
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	chairLocationID := ulid.Make().String()
 	if _, err := tx.ExecContext(
 		ctx,
@@ -125,6 +139,16 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	if err := tx.GetContext(ctx, location, `SELECT * FROM chair_locations WHERE id = ?`, chairLocationID); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Update total distance
+	if isUpdate {
+		movedDistance := distance(lastLocation.Latitude, lastLocation.Longitude, location.Latitude, location.Longitude)
+		query := `insert into total_distance (chair_id, total_distance, total_distance_updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, total_distance_updated_at = ?`
+		if _, err := tx.ExecContext(ctx, query, chair.ID, movedDistance, location.CreatedAt, movedDistance, location.CreatedAt); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
 	ride := &Ride{}

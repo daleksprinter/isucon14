@@ -138,3 +138,13 @@ CREATE TABLE coupons
   PRIMARY KEY (user_id, code)
 )
   COMMENT 'クーポンテーブル';
+
+DROP TABLE IF EXISTS total_distance;
+CREATE TABLE total_distance
+(
+  chair_id VARCHAR(26) NOT NULL,
+  total_distance INTEGER NOT NULL,
+  total_distance_updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (chair_id)
+)
+  COMMENT '椅子の総移動距離';
