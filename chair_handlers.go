@@ -139,7 +139,7 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 
 	// Update total distance
 	movedDistance := distance(lastLocation.Latitude, lastLocation.Longitude, location.Latitude, location.Longitude)
-	query := `insert into total_distance (chair_id, total_distance, updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, updated_at = ?`
+	query := `insert into total_distance (chair_id, total_distance, total_distance_updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, updated_at = ?`
 	if _, err := tx.ExecContext(ctx, query, chair.ID, movedDistance, location.CreatedAt, movedDistance, location.CreatedAt); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
