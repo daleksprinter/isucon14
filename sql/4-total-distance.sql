@@ -1,5 +1,5 @@
-insert into TOTAL_DISTANCE (
-    chair_id, total_distance, updated_at
+insert into total_distance (
+    chair_id, total_distance, total_distance_updated_at
 )
 SELECT
     chair_id,
