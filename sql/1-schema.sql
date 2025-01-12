@@ -138,7 +138,7 @@ CREATE TABLE coupons
   COMMENT 'クーポンテーブル';
 
 DROP TABLE IF EXISTS total_distance;
-CREATE TABLE TOTAL_DISTANCE
+CREATE TABLE total_distance
 (
   chair_id VARCHAR(26) NOT NULL,
   total_distance INTEGER NOT NULL,
