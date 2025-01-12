@@ -116,7 +116,11 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	lastLocation := &ChairLocation{}
-	if err := tx.GetContext(ctx, lastLocation, `SELECT * FROM chair_locations where chair_id = ? order by created_at desc limit 1`, chair.ID); err != sql.ErrNoRows && err != nil {
+	err = tx.GetContext(ctx, lastLocation, `SELECT * FROM chair_locations where chair_id = ? order by created_at desc limit 1`, chair.ID)
+	isUpdate := true
+	if err == sql.ErrNoRows {
+		isUpdate = false
+	} else if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -135,6 +139,16 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 	if err := tx.GetContext(ctx, location, `SELECT * FROM chair_locations WHERE id = ?`, chairLocationID); err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Update total distance
+	if isUpdate {
+		movedDistance := distance(lastLocation.Latitude, lastLocation.Longitude, location.Latitude, location.Longitude)
+		query := `insert into total_distance (chair_id, total_distance, total_distance_updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, total_distance_updated_at = ?`
+		if _, err := tx.ExecContext(ctx, query, chair.ID, movedDistance, location.CreatedAt, movedDistance, location.CreatedAt); err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
 	ride := &Ride{}
@@ -164,14 +178,6 @@ func chairPostCoordinate(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-	}
-
-	// Update total distance
-	movedDistance := distance(lastLocation.Latitude, lastLocation.Longitude, location.Latitude, location.Longitude)
-	query := `insert into total_distance (chair_id, total_distance, total_distance_updated_at) values (?, ?, ?) on duplicate key update total_distance = total_distance + ?, total_distance_updated_at = ?`
-	if _, err := tx.ExecContext(ctx, query, chair.ID, movedDistance, location.CreatedAt, movedDistance, location.CreatedAt); err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
 	}
 
 	if err := tx.Commit(); err != nil {
